@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 axum = "0.8.1"
+fred = { version = "10.0.4", features = ["enable-native-tls"] }
 tokio = { version = "1.43.0", features = ["full"] }
