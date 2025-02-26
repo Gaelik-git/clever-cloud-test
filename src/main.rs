@@ -1,8 +1,15 @@
 use std::env;
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Router};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
 use fred::{
-    prelude::{ClientLike, Config},
+    error::ErrorKind,
+    prelude::{ClientLike, Config, KeysInterface},
     types::Builder,
 };
 
@@ -29,6 +36,7 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/ping", get(ping))
+        .route("/key/{key}", get(get_key_value))
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
@@ -47,4 +55,20 @@ async fn ping(State(app_state): State<AppState>) -> impl IntoResponse {
 async fn health_check() -> impl IntoResponse {
     println!("health check");
     (StatusCode::OK, "OK")
+}
+
+async fn get_key_value(
+    Path(key): Path<String>,
+    State(app_state): State<AppState>,
+) -> Result<String, StatusCode> {
+    let client = app_state.materia_kv_pool.next();
+    let val = client.get(key).await;
+
+    val.map_err(|err| {
+        if err.kind() == &ErrorKind::NotFound {
+            StatusCode::NOT_FOUND
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    })
 }
